@@ -1,11 +1,12 @@
 /* ============================================
-   PPT WEB ENGINE — Navigation Only
+   PPT WEB ENGINE — Navigation + Animations
    ============================================ */
 (function () {
     'use strict';
 
     let currentSlide = 1;
     const totalSlides = 17;
+    let countersAnimated = {};
 
     function init() {
         updateSlide(1);
@@ -14,15 +15,25 @@
 
     function updateSlide(n) {
         if (n < 1 || n > totalSlides) return;
+
+        // Remove active from all slides
         document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+
         currentSlide = n;
         const active = document.querySelector(`[data-slide="${n}"]`);
-        if (active) active.classList.add('active');
+        if (active) {
+            active.classList.add('active');
+            // Trigger number counter animation for slide 11
+            if (n === 11 && !countersAnimated[n]) {
+                countersAnimated[n] = true;
+                setTimeout(() => animateCounters(active), 600);
+            }
+        }
 
         // Progress bar
         document.getElementById('progressBar').style.width = (n / totalSlides * 100) + '%';
 
-        // Counter
+        // Counter display
         document.getElementById('slideCounter').textContent =
             String(n).padStart(2, '0') + ' / ' + String(totalSlides).padStart(2, '0');
 
@@ -33,6 +44,32 @@
         prev.style.pointerEvents = n === 1 ? 'none' : 'auto';
         next.style.opacity = n === totalSlides ? '0.3' : '1';
         next.style.pointerEvents = n === totalSlides ? 'none' : 'auto';
+    }
+
+    function animateCounters(slideEl) {
+        const counters = slideEl.querySelectorAll('.stat-number');
+        counters.forEach(counter => {
+            const target = parseInt(counter.dataset.target);
+            const suffix = counter.dataset.suffix || '';
+            const duration = 1500;
+            const startTime = performance.now();
+
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                // Ease out cubic
+                const eased = 1 - Math.pow(1 - progress, 3);
+                const current = Math.round(eased * target);
+                counter.textContent = current + suffix;
+
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                } else {
+                    counter.textContent = target + suffix;
+                }
+            }
+            requestAnimationFrame(update);
+        });
     }
 
     function bindEvents() {
@@ -64,8 +101,6 @@
             }
             if (e.key === 'Home') { e.preventDefault(); updateSlide(1); }
             if (e.key === 'End') { e.preventDefault(); updateSlide(totalSlides); }
-            const num = parseInt(e.key);
-            if (!isNaN(num) && num >= 1 && num <= 9) updateSlide(num);
         });
 
         // Touch swipe
@@ -90,7 +125,7 @@
             }, 100);
         }, { passive: true });
 
-        // Click navigation (left third -> prev, right two-thirds -> next)
+        // Click navigation
         document.addEventListener('click', e => {
             if (e.target.closest('.slide-nav, a, button, input')) return;
             if (e.clientX > window.innerWidth / 3) updateSlide(currentSlide + 1);
